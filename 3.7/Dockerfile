@@ -1,4 +1,4 @@
-FROM ubuntu:focal AS build
+FROM ubuntu:20.04 AS build
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG C.UTF-8
@@ -120,6 +120,9 @@ COPY init.sh /app/init.sh
 COPY start.sh /app/start.sh
 COPY startapache.sh /app/startapache.sh
 COPY startpostgres.sh /app/startpostgres.sh
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY backup-postgres-dir.sh /app/backup-postgres-dir.sh
+COPY restore-postgres-dir.sh /app/restore-postgres-dir.sh
 
 # Collapse image to single layer.
 FROM scratch
@@ -130,15 +133,28 @@ COPY --from=build / /
 ENV NOMINATIM_PASSWORD qaIACxO6wMR3
 # how many threads should be use for importing
 ENV THREADS=16
-
 ENV PROJECT_DIR /nominatim
-CMD mkdir ${PROJECT_DIR}
+ENV UID=11000
+ENV POSTGRES_DATA_DIR=/var/lib/postgresql/12/main
+ENV BACKUP_DIR=/data
+
+RUN groupadd --gid $UID nominatim
+RUN useradd --create-home --uid $UID --gid nominatim nominatim
+# allow the user to sudo without a password
+# RUN echo "nominatim     ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+RUN mkdir $PROJECT_DIR && chown nominatim:nominatim $PROJECT_DIR
 
 WORKDIR /app
 
 EXPOSE 5432
 EXPOSE 8080
 
-COPY conf.d/env $PROJECT_DIR/.env
+COPY --chown=nominatim:nominatim conf.d/env $PROJECT_DIR/.env
 
-CMD /app/start.sh
+# Changing the running user would require more changes, not doing it for now
+# USER nominatim
+
+VOLUME [ "/var/lib/postgresql/12/main/", "/data" ]
+
+ENTRYPOINT [ "/app/docker-entrypoint.sh" ]
