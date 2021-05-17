@@ -7,4 +7,7 @@ if [ -f $BACKUP_DIR/pg12-nominatim.tgz_aa ]; then
 
     # change ownership to postgres
     chown -R postgres:postgres $POSTGRES_DATA_DIR
+
+    # Permissions should be u=rwx (0700) or u=rwx,g=rx (0750)
+    chmod 0700 $POSTGRES_DATA_DIR
 fi
